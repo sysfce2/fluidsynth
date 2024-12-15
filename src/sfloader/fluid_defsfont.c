@@ -954,7 +954,6 @@ fluid_defpreset_noteon(fluid_defpreset_t *defpreset, fluid_synth_t *synth, int c
 
                     for(i = 0; i < GEN_LAST; i++)
                     {
-
                         /* SF 2.01 section 9.4 'bullet' 4:
                          *
                          * A generator in a local instrument zone supersedes a
@@ -977,7 +976,6 @@ fluid_defpreset_noteon(fluid_defpreset_t *defpreset, fluid_synth_t *synth, int c
                              * Do nothing, leave it at the default.
                              */
                         }
-
                     } /* for all generators */
 
                     /* Adds instrument zone modulators (global and local) to the voice.*/
@@ -991,7 +989,7 @@ fluid_defpreset_noteon(fluid_defpreset_t *defpreset, fluid_synth_t *synth, int c
 
                     for(i = 0; i < GEN_LAST; i++)
                     {
-
+                        fluid_real_t awe_val;
                         /* SF 2.01 section 8.5 page 58: If some generators are
                          encountered at preset level, they should be ignored.
                          However this check is not necessary when the soundfont
@@ -1025,6 +1023,12 @@ fluid_defpreset_noteon(fluid_defpreset_t *defpreset, fluid_synth_t *synth, int c
                             /* The generator has not been defined in this preset
                              * Do nothing, leave it unchanged.
                              */
+                        }
+
+                        /* ...unless the default value has been overridden by an AWE32 NRPN */
+                        if (fluid_channel_get_override_gen_default(synth->channel[chan], i, &awe_val))
+                        {
+                            fluid_voice_gen_set(voice, i, awe_val);
                         }
                     } /* for all generators */
 
@@ -1612,18 +1616,6 @@ fluid_zone_mod_import_sfont(char *zone_name, fluid_mod_t **mod, SFZone *sfzone)
             /* This shouldn't happen - unknown type!
              * Deactivate the modulator by setting the amount to 0. */
             mod_dest->amount = 0;
-        }  
-
-        /* Note: When primary source input (src1) is set to General Controller 'No Controller',
-           output will be forced to 0.0 at synthesis time (see fluid_mod_get_value()).
-           That means that the minimum value of the modulator will be always 0.0.
-           We need to force amount value to 0 to ensure a correct evaluation of the minimum
-           value later (see fluid_voice_get_lower_boundary_for_attenuation()).
-        */
-        if(((mod_dest->flags1 & FLUID_MOD_CC) == FLUID_MOD_GC) && 
-            (mod_dest->src1 == FLUID_MOD_NONE))
-        {
-            mod_dest->amount = 0;
         }
 
         /* *** Dest *** */
@@ -1635,17 +1627,6 @@ fluid_zone_mod_import_sfont(char *zone_name, fluid_mod_t **mod, SFZone *sfzone)
             /* This shouldn't happen - unknown type!
              * Deactivate the modulator by setting the amount to 0. */
             mod_dest->amount = 0;
-        }  
-        /* Note: When secondary source input (src2) is set to General Controller 'No Controller',
-           output will be forced to +1.0 at synthesis time (see fluid_mod_get_value()).
-           That means that this source will behave unipolar only. We need to force the
-           unipolar flag to ensure a correct evaluation of the minimum
-           value later (see fluid_voice_get_lower_boundary_for_attenuation()).
-        */
-        if(((mod_dest->flags2 & FLUID_MOD_CC) == FLUID_MOD_GC) && 
-            (mod_dest->src2 == FLUID_MOD_NONE))
-        {
-            mod_dest->flags2 &= ~FLUID_MOD_BIPOLAR;
         }
 
         /**
